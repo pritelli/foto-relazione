@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="FotoRelazione">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#111827">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<title>Relazione Fotografica</title>
+<style>
+:root{--bg:#f4f5f7;--card:#fff;--ink:#111827;--mut:#6b7280;--line:#e5e7eb;--acc:#1d4ed8;--danger:#b91c1c;--ok:#15803d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 -apple-system,BlinkMacSystemFont,"SF Pro Text",Helvetica,Arial,sans-serif}
+body{padding:env(safe-area-inset-top) env(safe-area-inset-right) calc(env(safe-area-inset-bottom) + 24px) env(safe-area-inset-left);min-height:100vh}
+header.top{position:sticky;top:0;z-index:10;background:rgba(244,245,247,.94);backdrop-filter:blur(10px);border-bottom:1px solid var(--line);display:flex;align-items:center;gap:8px;padding:10px 14px}
+header.top h1{font-size:17px;margin:0;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.wrap{max-width:720px;margin:0 auto;padding:14px}
+.card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:14px;margin-bottom:12px}
+.card h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);margin:0 0 10px}
+label{display:block;font-size:13px;color:var(--mut);margin:10px 0 4px}
+input,textarea,select{width:100%;font:inherit;padding:10px 12px;border:1px solid #d1d5db;border-radius:10px;background:#fff;color:var(--ink)}
+textarea{min-height:76px;resize:vertical}
+button{font:inherit;border:0;border-radius:10px;padding:11px 14px;background:var(--ink);color:#fff;font-weight:600}
+button.sec{background:#fff;color:var(--ink);border:1px solid #d1d5db}
+button.acc{background:var(--acc)}
+button.danger{background:#fff;color:var(--danger);border:1px solid #fecaca}
+button.sm{padding:7px 10px;font-size:14px}
+button:disabled{opacity:.5}
+.row{display:flex;gap:8px;flex-wrap:wrap}
+.row>*{flex:1}
+.tabs{display:flex;gap:6px;background:#e5e7eb;border-radius:12px;padding:4px;margin-bottom:12px}
+.tabs button{flex:1;background:transparent;color:var(--ink);padding:8px 4px;font-weight:600;font-size:15px}
+.tabs button.on{background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.12)}
+.proj{display:flex;gap:10px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line)}
+.proj:last-child{border:0}
+.proj .t{flex:1;min-width:0}
+.proj .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.proj .t span{font-size:13px;color:var(--mut)}
+.photo{display:flex;gap:10px;border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px;background:#fff}
+.photo img{width:96px;height:96px;object-fit:cover;border-radius:8px;flex:none;background:#eee}
+.photo .b{flex:1;min-width:0}
+.photo .n{font-weight:700;font-size:14px;margin-bottom:6px}
+.photo textarea{min-height:56px}
+.mic{flex:none;width:44px;padding:0;height:44px;font-size:20px}
+.mic.rec{background:var(--danger);color:#fff}
+.acts{display:flex;gap:6px;margin-top:6px}
+.small{font-size:13px;color:var(--mut)}
+.toast{position:fixed;left:50%;bottom:calc(env(safe-area-inset-bottom) + 20px);transform:translateX(-50%);background:#111827;color:#fff;padding:10px 16px;border-radius:12px;z-index:50;max-width:90%;text-align:center;font-size:14px}
+.mapimg{width:100%;border-radius:10px;border:1px solid var(--line);margin-top:8px}
+.pill{display:inline-block;font-size:12px;padding:2px 8px;border-radius:99px;background:#e5e7eb;color:#374151}
+.ok{color:var(--ok)}
+hr{border:0;border-top:1px solid var(--line);margin:12px 0}
+</style>
+</head>
+<body>
+<header class="top" id="top"></header>
+<div class="wrap" id="app"></div>
+<input type="file" id="fCam" accept="image/*" capture="environment" hidden>
+<input type="file" id="fGal" accept="image/*" multiple hidden>
+<input type="file" id="fImp" accept="application/json,.json" hidden>
+<script src="jspdf.js"></script>
+<script src="docx.js"></script>
+<script>
+'use strict';
+/* ---------- utilità ---------- */
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uid=()=>Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+const CATS=['Generale','Esterno','Interno','Dettaglio','Impianto','Criticità','Documento'];
+const toastEl=document.createElement('div');toastEl.className='toast';toastEl.style.display='none';document.body.appendChild(toastEl);
+let tT;function toast(m,ms=2600){toastEl.textContent=m;toastEl.style.display='block';clearTimeout(tT);tT=setTimeout(()=>toastEl.style.display='none',ms);}
+const fmtDate=d=>{if(!d)return'';const [y,m,g]=d.split('-');return `${g}/${m}/${y}`;};
+const today=()=>{const d=new Date();return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}-${String(d.getDate()).padStart(2,'0')}`;};
+const slug=s=>(s||'relazione').normalize('NFD').replace(/[̀-ͯ]/g,'').replace(/[^a-zA-Z0-9]+/g,'_').replace(/^_|_$/g,'').slice(0,40)||'relazione';
+
+/* ---------- impostazioni studio ---------- */
+const DEF={studio:'Studio Pritelli Ingegneria',line1:'Cattolica (RN)',line2:'',operator:'Ing. Francesco Pritelli'};
+const getSet=()=>{try{return Object.assign({},DEF,JSON.parse(localStorage.getItem('fr_set')||'{}'));}catch(e){return {...DEF};}};
+const putSet=s=>{try{localStorage.setItem('fr_set',JSON.stringify(s));}catch(e){}};
+
+/* ---------- IndexedDB ---------- */
+let _db;
+function db(){return _db||(_db=new Promise((res,rej)=>{const r=indexedDB.open('fotorel',1);r.onupgradeneeded=()=>r.result.createObjectStore('p',{keyPath:'id'});r.onsuccess=()=>res(r.result);r.onerror=()=>rej(r.error);}));}
+async function tx(mode,fn){const d=await db();return new Promise((res,rej)=>{const t=d.transaction('p',mode);const o=fn(t.objectStore('p'));t.oncomplete=()=>res(o&&o.result);t.onerror=()=>rej(t.error);});}
+const dbAll=()=>tx('readonly',s=>s.getAll());
+const dbPut=p=>tx('readwrite',s=>s.put(p));
+const dbDel=id=>tx('readwrite',s=>s.delete(id));
+const dbGet=id=>tx('readonly',s=>s.get(id));
+
+/* ---------- stato ---------- */
+let P=null,TAB='dati',gen=null,saveT;
+const newProject=()=>({id:uid(),title:'',subject:'',client:'',address:'',lat:null,lng:null,date:today(),operator:getSet().operator,premise:'',conclusions:'',photos:[],mapData:null,mapKey:'',createdAt:Date.now(),updatedAt:Date.now()});
+function save(now){clearTimeout(saveT);const f=async()=>{if(!P)return;P.updatedAt=Date.now();await dbPut(P);const s=$('#saved');if(s)s.textContent='Salvato';};if(now)return f();const s=$('#saved');if(s)s.textContent='…';saveT=setTimeout(f,400);}
+
+/* ---------- Home ---------- */
+async function home(){
+  P=null;gen=null;
+  $('#top').innerHTML='<h1>Relazioni fotografiche</h1><button class="sec sm" id="bSet">Studio</button>';
+  $('#bSet').onclick=settings;
+  const list=(await dbAll()).sort((a,b)=>b.updatedAt-a.updatedAt);
+  $('#app').innerHTML=`
+  <div class="card"><div class="row"><button class="acc" id="bNew">+ Nuova relazione</button><button class="sec" id="bImp">Importa backup</button></div></div>
+  <div class="card"><h2>Archivio (${list.length})</h2>
+  ${list.length?list.map(p=>`<div class="proj" data-id="${p.id}"><div class="t"><b>${esc(p.title||'Senza titolo')}</b><span>${fmtDate(p.date)} · ${p.photos.length} foto${p.address?' · '+esc(p.address):''}</span></div><button class="sec sm" data-del="${p.id}">Elimina</button></div>`).join(''):'<p class="small">Nessuna relazione. Creane una per iniziare.</p>'}
+  </div>
+  <p class="small">I dati restano su questo iPhone (memoria del browser). Usa "Importa/Esporta backup" per non perderli.</p>`;
+  $('#bNew').onclick=async()=>{P=newProject();await dbPut(P);TAB='dati';editor();};
+  $('#bImp').onclick=()=>$('#fImp').click();
+  document.querySelectorAll('.proj').forEach(el=>el.onclick=async e=>{
+    if(e.target.dataset.del){if(confirm('Eliminare definitivamente questa relazione?')){await dbDel(e.target.dataset.del);home();}return;}
+    P=await dbGet(el.dataset.id);TAB='dati';gen=null;editor();});
+}
+function settings(){
+  const s=getSet();
+  $('#top').innerHTML='<button class="sec sm" id="bBack">‹ Indietro</button><h1>Intestazione studio</h1>';
+  $('#bBack').onclick=home;
+  $('#app').innerHTML=`<div class="card"><h2>Carta intestata del report</h2>
+  <label>Studio</label><input id="s1" value="${esc(s.studio)}">
+  <label>Riga 2 (indirizzo, tel, P.IVA…)</label><input id="s2" value="${esc(s.line1)}">
+  <label>Riga 3</label><input id="s3" value="${esc(s.line2)}">
+  <label>Operatore predefinito</label><input id="s4" value="${esc(s.operator)}">
+  <div style="margin-top:14px"><button class="acc" id="sv">Salva</button></div></div>`;
+  $('#sv').onclick=()=>{putSet({studio:$('#s1').value,line1:$('#s2').value,line2:$('#s3').value,operator:$('#s4').value});toast('Salvato');home();};
+}
+
+/* ---------- Editor ---------- */
+function editor(){
+  $('#top').innerHTML=`<button class="sec sm" id="bBack">‹ Archivio</button><h1>${esc(P.title||'Nuova relazione')}</h1><span class="small" id="saved">Salvato</span>`;
+  $('#bBack').onclick=async()=>{await save(true);home();};
+  $('#app').innerHTML=`<div class="tabs"><button data-t="dati">Dati</button><button data-t="foto">Foto (${P.photos.length})</button><button data-t="report">Report</button></div><div id="pane"></div>`;
+  document.querySelectorAll('.tabs button').forEach(b=>{b.classList.toggle('on',b.dataset.t===TAB);b.onclick=()=>{TAB=b.dataset.t;editor();window.scrollTo(0,0);};});
+  ({dati:paneDati,foto:paneFoto,report:paneReport})[TAB]();
+}
+const bind=(id,key)=>{const el=$('#'+id);el.oninput=()=>{P[key]=el.value;if(key==='title'){const h=document.querySelector('#top h1');if(h)h.textContent=P.title||'Nuova relazione';}save();};};
+
+function paneDati(){
+  $('#pane').innerHTML=`
+  <div class="card"><h2>01 · Dati generali</h2>
+  <label>Titolo relazione</label><input id="f_title" value="${esc(P.title)}" placeholder="es. Sopralluogo centrale termica Hotel …">
+  <label>Oggetto / premessa breve</label><input id="f_subject" value="${esc(P.subject)}" placeholder="es. Riqualificazione impianto termico">
+  <label>Committente</label><input id="f_client" value="${esc(P.client)}">
+  <div class="row"><div><label>Data sopralluogo</label><input type="date" id="f_date" value="${esc(P.date)}"></div><div><label>Operatore</label><input id="f_operator" value="${esc(P.operator)}"></div></div>
+  </div>
+  <div class="card"><h2>02 · Localizza</h2>
+  <label>Indirizzo</label><input id="f_address" value="${esc(P.address)}" placeholder="Via, civico, città">
+  <div class="row" style="margin-top:10px"><button class="acc" id="bGps">📍 Usa posizione attuale</button><button class="sec" id="bGeo">Cerca indirizzo</button></div>
+  <p class="small" id="coord">${P.lat!=null?`Coordinate: ${P.lat.toFixed(6)}, ${P.lng.toFixed(6)}`:'Nessuna coordinata.'}</p>
+  <div id="mapbox">${P.mapData?`<img class="mapimg" src="${P.mapData}">`:''}</div></div>
+  <div class="card"><h2>Premessa</h2><textarea id="f_premise" placeholder="Descrizione dell'attività svolta, contesto, riferimenti…">${esc(P.premise)}</textarea></div>
+  <div class="card"><h2>Conclusioni / osservazioni finali</h2><textarea id="f_conclusions" placeholder="Sintesi delle evidenze, criticità e azioni suggerite…">${esc(P.conclusions)}</textarea></div>`;
+  ['title','subject','client','date','operator','address','premise','conclusions'].forEach(k=>bind('f_'+k,k));
+  $('#bGps').onclick=useGps;$('#bGeo').onclick=geocode;
+}
+
+/* ---------- Geolocalizzazione e mappa ---------- */
+function useGps(){
+  if(!navigator.geolocation)return toast('Geolocalizzazione non disponibile');
+  toast('Rilevo la posizione…',6000);
+  navigator.geolocation.getCurrentPosition(async pos=>{
+    P.lat=pos.coords.latitude;P.lng=pos.coords.longitude;
+    $('#coord').textContent=`Coordinate: ${P.lat.toFixed(6)}, ${P.lng.toFixed(6)}`;
+    try{const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${P.lat}&lon=${P.lng}&accept-language=it`);const j=await r.json();
+      if(j&&j.address){const a=j.address;const via=[a.road,a.house_number].filter(Boolean).join(' ');const loc=a.city||a.town||a.village||a.municipality||'';P.address=[via,loc].filter(Boolean).join(', ')||j.display_name||P.address;$('#f_address').value=P.address;}}catch(e){toast('Indirizzo non risolto (serve connessione)');}
+    await updateMap();save();toast('Posizione acquisita');
+  },err=>toast('Posizione negata o non disponibile: abilitala in Impostazioni › Privacy › Localizzazione',5000),{enableHighAccuracy:true,timeout:15000,maximumAge:0});
+}
+async function geocode(){
+  const q=P.address.trim();if(!q)return toast('Inserisci un indirizzo');
+  try{const r=await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=1&q=${encodeURIComponent(q)}&accept-language=it`);const j=await r.json();
+    if(!j.length)return toast('Indirizzo non trovato');P.lat=parseFloat(j[0].lat);P.lng=parseFloat(j[0].lon);
+    $('#coord').textContent=`Coordinate: ${P.lat.toFixed(6)}, ${P.lng.toFixed(6)}`;await updateMap();save();}catch(e){toast('Ricerca non riuscita (serve connessione)');}
+}
+function loadImg(src,cors){return new Promise((res,rej)=>{const i=new Image();if(cors)i.crossOrigin='anonymous';i.onload=()=>res(i);i.onerror=rej;i.src=src;});}
+async function makeMap(lat,lng){
+  const z=16,n=Math.pow(2,z);
+  const x=(lng+180)/360*n;const lr=lat*Math.PI/180;const y=(1-Math.log(Math.tan(lr)+1/Math.cos(lr))/Math.PI)/2*n;
+  const fx=Math.floor(x),fy=Math.floor(y);
+  const cv=document.createElement('canvas');cv.width=768;cv.height=768;const c=cv.getContext('2d');
+  const jobs=[];for(let dx=-1;dx<=1;dx++)for(let dy=-1;dy<=1;dy++)jobs.push(loadImg(`https://tile.openstreetmap.org/${z}/${fx+dx}/${fy+dy}.png`,true).then(i=>c.drawImage(i,(dx+1)*256,(dy+1)*256)));
+  await Promise.all(jobs);
+  const px=(x-(fx-1))*256,py=(y-(fy-1))*256;
+  const id=c.getImageData(0,0,768,768),d=id.data;for(let i=0;i<d.length;i+=4){const g=0.3*d[i]+0.59*d[i+1]+0.11*d[i+2];d[i]=d[i+1]=d[i+2]=g;}c.putImageData(id,0,0);
+  c.fillStyle='#fff';c.beginPath();c.arc(px,py,16,0,7);c.fill();c.fillStyle='#000';c.beginPath();c.arc(px,py,11,0,7);c.fill();c.strokeStyle='#000';c.lineWidth=3;c.beginPath();c.arc(px,py,26,0,7);c.stroke();
+  const out=document.createElement('canvas');out.width=768;out.height=480;const o=out.getContext('2d');
+  const sy=Math.max(0,Math.min(768-480,py-240));o.drawImage(cv,0,sy,768,480,0,0,768,480);
+  return out.toDataURL('image/jpeg',.85);
+}
+async function updateMap(){
+  if(P.lat==null)return;const key=P.lat.toFixed(5)+','+P.lng.toFixed(5);
+  if(P.mapKey===key&&P.mapData)return;
+  try{P.mapData=await makeMap(P.lat,P.lng);P.mapKey=key;const m=$('#mapbox');if(m)m.innerHTML=`<img class="mapimg" src="${P.mapData}">`;}
+  catch(e){P.mapData=null;P.mapKey='';toast('Mappa non scaricata (serve connessione): il report avrà solo le coordinate');}
+}
+
+/* ---------- Foto ---------- */
+function paneFoto(){
+  $('#pane').innerHTML=`
+  <div class="card"><h2>03 · Documentazione fotografica</h2>
+  <div class="row"><button class="acc" id="bCam">📷 Scatta</button><button class="sec" id="bGal">🖼 Dalla galleria</button></div>
+  <p class="small">Le immagini vengono ridimensionate (max 1600 px) per tenere leggero il report. Per dettare: tocca il microfono, oppure quello della tastiera iOS.</p></div>
+  <div id="plist"></div>`;
+  $('#bCam').onclick=()=>$('#fCam').click();$('#bGal').onclick=()=>$('#fGal').click();
+  drawPhotos();
+}
+function drawPhotos(){
+  const L=$('#plist');if(!L)return;
+  if(!P.photos.length){L.innerHTML='<div class="card small">Nessuna fotografia inserita.</div>';return;}
+  L.innerHTML=P.photos.map((ph,i)=>`<div class="photo" data-i="${i}"><img src="${ph.data}"><div class="b">
+   <div class="n">Foto ${i+1}</div>
+   <select data-k="category">${CATS.map(c=>`<option${c===ph.category?' selected':''}>${c}</option>`).join('')}</select>
+   <div style="display:flex;gap:6px;margin-top:6px"><textarea data-k="caption" placeholder="Didascalia / osservazione">${esc(ph.caption)}</textarea><button class="sec mic" data-a="mic" title="Detta">🎤</button></div>
+   <div class="acts"><button class="sec sm" data-a="up">↑</button><button class="sec sm" data-a="down">↓</button><button class="danger sm" data-a="del">Elimina</button></div></div></div>`).join('');
+  L.querySelectorAll('.photo').forEach(el=>{
+    const i=+el.dataset.i;
+    el.querySelectorAll('[data-k]').forEach(f=>f.oninput=()=>{P.photos[i][f.dataset.k]=f.value;save();});
+    el.querySelectorAll('[data-a]').forEach(b=>b.onclick=()=>{
+      const a=b.dataset.a;
+      if(a==='del'){if(confirm('Eliminare la foto '+(i+1)+'?')){P.photos.splice(i,1);save();editor();}}
+      else if(a==='up'&&i>0){[P.photos[i-1],P.photos[i]]=[P.photos[i],P.photos[i-1]];save();editor();}
+      else if(a==='down'&&i<P.photos.length-1){[P.photos[i+1],P.photos[i]]=[P.photos[i],P.photos[i+1]];save();editor();}
+      else if(a==='mic')dictate(el.querySelector('textarea'),b,i);
+    });
+  });
+}
+async function shrink(file,max=1600){
+  let bmp;try{bmp=await createImageBitmap(file,{imageOrientation:'from-image'});}catch(e){bmp=await loadImg(URL.createObjectURL(file));}
+  const w0=bmp.width,h0=bmp.height,k=Math.min(1,max/Math.max(w0,h0));const w=Math.round(w0*k),h=Math.round(h0*k);
+  const cv=document.createElement('canvas');cv.width=w;cv.height=h;cv.getContext('2d').drawImage(bmp,0,0,w,h);
+  return {data:cv.toDataURL('image/jpeg',.82),w,h};
+}
+async function addFiles(files){
+  if(!P||!files.length)return;toast('Elaboro le immagini…',8000);
+  for(const f of files){try{const s=await shrink(f);P.photos.push({id:uid(),data:s.data,w:s.w,h:s.h,category:'Generale',caption:'',name:f.name||'foto.jpg',ts:f.lastModified||Date.now()});}catch(e){toast('Immagine non letta: '+f.name);}}
+  await save(true);toastEl.style.display='none';TAB='foto';editor();
+}
+$('#fCam').onchange=e=>{addFiles([...e.target.files]);e.target.value='';};
+$('#fGal').onchange=e=>{addFiles([...e.target.files]);e.target.value='';};
+
+/* ---------- Dettatura ---------- */
+let rec=null;
+function dictate(ta,btn){
+  const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
+  if(rec){try{rec.stop();}catch(e){}return;}
+  if(!SR){ta.focus();return toast('Dettatura integrata non disponibile: usa il microfono della tastiera iOS',4500);}
+  rec=new SR();rec.lang='it-IT';rec.interimResults=false;rec.continuous=false;
+  btn.classList.add('rec');
+  rec.onresult=ev=>{const t=[...ev.results].map(r=>r[0].transcript).join(' ').trim();if(t){ta.value=(ta.value?ta.value.trim()+' ':'')+t.charAt(0).toUpperCase()+t.slice(1);ta.dispatchEvent(new Event('input'));}};
+  rec.onerror=ev=>{toast(ev.error==='not-allowed'||ev.error==='service-not-allowed'?'Microfono/dettatura non consentiti: usa il microfono della tastiera iOS':'Dettatura non riuscita ('+ev.error+')',4500);ta.focus();};
+  rec.onend=()=>{btn.classList.remove('rec');rec=null;};
+  try{rec.start();toast('Parla ora…',3000);}catch(e){rec=null;btn.classList.remove('rec');ta.focus();}
+}
+
+/* ---------- Report ---------- */
+function fname(ext){return `Relazione_fotografica_${slug(P.title)}_${P.date||today()}.${ext}`;}
+function paneReport(){
+  const miss=[];if(!P.title)miss.push('titolo');if(!P.photos.length)miss.push('almeno una foto');
+  $('#pane').innerHTML=`
+  <div class="card"><h2>04 · Genera il report</h2>
+  <p>${P.photos.length} foto · ${P.lat!=null?'localizzato':'senza coordinate'} · ${P.premise?'premessa presente':'senza premessa'}</p>
+  ${miss.length?`<p class="small">Manca: ${miss.join(', ')}.</p>`:''}
+  <button class="acc" id="bGen" style="width:100%" ${P.photos.length?'':'disabled'}>Genera PDF + Word</button>
+  <div id="gres"></div></div>
+  <div class="card"><h2>Backup</h2><p class="small">Esporta l'intera relazione (foto incluse) per ripristinarla o spostarla su un altro dispositivo.</p>
+  <button class="sec" id="bBk">Esporta backup (.json)</button></div>`;
+  $('#bGen').onclick=generate;$('#bBk').onclick=backup;
+  if(gen)showGen();
+}
+async function generate(){
+  const b=$('#bGen');b.disabled=true;b.textContent='Genero…';
+  try{await updateMap();const S=getSet();const pdf=await buildPDF(P,S);const docx=await buildDOCX(P,S);gen={pdf:new File([pdf],fname('pdf'),{type:'application/pdf'}),docx:new File([docx],fname('docx'),{type:'application/vnd.openxmlformats-officedocument.wordprocessingml.document'})};await save(true);}
+  catch(e){console.error(e);toast('Errore nella generazione: '+(e.message||e),6000);}
+  b.disabled=false;b.textContent='Genera PDF + Word';showGen();
+}
+function showGen(){
+  const g=$('#gres');if(!g||!gen)return;
+  const kb=f=>Math.round(f.size/1024)+' KB';
+  g.innerHTML=`<hr><p class="ok"><b>Report pronto.</b></p><p class="small">${esc(gen.pdf.name)} (${kb(gen.pdf)})<br>${esc(gen.docx.name)} (${kb(gen.docx)})</p>
+  <button class="acc" id="shAll" style="width:100%;margin-bottom:8px">Invia / salva (PDF + Word)…</button>
+  <div class="row"><button class="sec" id="shPdf">Solo PDF…</button><button class="sec" id="shDoc">Solo Word…</button></div>
+  <div class="row" style="margin-top:8px"><button class="sec" id="dlPdf">Scarica PDF</button><button class="sec" id="dlDoc">Scarica Word</button></div>
+  <p class="small" style="margin-top:10px">"Invia / salva" apre il foglio di condivisione di iOS: scegli <b>Mail</b> (allegati già inseriti), <b>Dropbox</b>, <b>OneDrive</b> o <b>Salva su File</b>.</p>`;
+  $('#shAll').onclick=()=>share([gen.pdf,gen.docx]);$('#shPdf').onclick=()=>share([gen.pdf]);$('#shDoc').onclick=()=>share([gen.docx]);
+  $('#dlPdf').onclick=()=>download(gen.pdf);$('#dlDoc').onclick=()=>download(gen.docx);
+}
+async function share(files){
+  const data={files,title:P.title||'Relazione fotografica',text:`Relazione fotografica${P.title?' - '+P.title:''}${P.date?' del '+fmtDate(P.date):''}`};
+  try{
+    if(navigator.canShare&&navigator.canShare({files})){await navigator.share(data);}
+    else{files.forEach(download);toast('Condivisione non supportata: file scaricati');}
+  }catch(e){if(e&&e.name==='AbortError')return;toast('Condivisione non riuscita: '+(e.message||e),5000);}
+}
+function download(f){const u=URL.createObjectURL(f);const a=document.createElement('a');a.href=u;a.download=f.name;document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(u),30000);}
+function backup(){const f=new File([JSON.stringify(P)],`backup_${slug(P.title)}_${P.date}.json`,{type:'application/json'});share([f]);}
+$('#fImp').onchange=async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;try{const p=JSON.parse(await f.text());if(!p.photos||!p.id)throw 0;p.id=uid();p.updatedAt=Date.now();await dbPut(p);toast('Relazione importata');home();}catch(x){toast('File di backup non valido');}};
+
+/* ---------- Generatore PDF (solo nero) ---------- */
+const metaRows=p=>[['Oggetto',p.subject],['Committente',p.client],['Indirizzo',p.address],['Coordinate',p.lat!=null?`${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}`:''],['Data sopralluogo',fmtDate(p.date)],['Operatore',p.operator]].filter(r=>r[1]);
+const tsStr=t=>{const d=new Date(t);return d.toLocaleDateString('it-IT')+' '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});};
+async function buildPDF(p,S){
+  const {jsPDF}=window.jspdf;const doc=new jsPDF({unit:'mm',format:'a4',compress:true});
+  const W=210,H=297,M=18,CW=W-2*M,BOT=H-M-6;let y=M;
+  doc.setTextColor(0,0,0);doc.setDrawColor(0,0,0);doc.setLineWidth(.3);
+  const need=h=>{if(y+h>BOT){doc.addPage();y=M;}};
+  const txt=(s,size,bold,x=M,w=CW,lh=0.5)=>{doc.setFont('helvetica',bold?'bold':'normal');doc.setFontSize(size);const ls=doc.splitTextToSize(String(s),w);const step=size*0.3528*1.25;ls.forEach(l=>{need(step);doc.text(l,x,y+size*0.3528*0.8);y+=step;});return ls.length;};
+  // carta intestata
+  doc.setFont('helvetica','bold');doc.setFontSize(15);doc.text(S.studio||'',M,y+5);y+=7;
+  [S.line1,S.line2].filter(Boolean).forEach(l=>{doc.setFont('helvetica','normal');doc.setFontSize(9);doc.text(l,M,y+3);y+=4.2;});
+  y+=2;doc.setLineWidth(.6);doc.line(M,y,W-M,y);y+=8;
+  txt('RELAZIONE FOTOGRAFICA',18,true);y+=1;
+  if(p.title)txt(p.title,12,true);y+=4;
+  // tabella dati
+  const rows=metaRows(p);const LW=40;doc.setFontSize(10);doc.setLineWidth(.25);
+  rows.forEach(([k,v])=>{doc.setFont('helvetica','normal');const ls=doc.splitTextToSize(v,CW-LW-4);const h=ls.length*4.6+3.2;need(h);
+    doc.rect(M,y,LW,h);doc.rect(M+LW,y,CW-LW,h);doc.setFont('helvetica','bold');doc.text(k,M+2,y+4.6);doc.setFont('helvetica','normal');doc.text(ls,M+LW+2,y+4.6);y+=h;});
+  y+=6;
+  // mappa
+  if(p.mapData){const mw=CW,mh=mw*480/768;need(mh+10);txt('Localizzazione del sopralluogo',11,true);y+=1;doc.addImage(p.mapData,'JPEG',M,y,mw,mh);doc.rect(M,y,mw,mh);y+=mh+2;doc.setFont('helvetica','normal');doc.setFontSize(8);doc.text('Mappa: © OpenStreetMap contributors',M,y+3);y+=8;}
+  // premessa
+  if(p.premise){need(20);txt('Premessa',12,true);y+=1.5;txt(p.premise,10.5,false);y+=6;}
+  // foto
+  if(p.photos.length){need(14);txt('Documentazione fotografica',12,true);y+=3;}
+  p.photos.forEach((ph,i)=>{
+    const maxW=CW,maxH=100;let w=maxW,h=w*ph.h/ph.w;if(h>maxH){h=maxH;w=h*ph.w/ph.h;}
+    doc.setFontSize(10);const cap=ph.caption?doc.splitTextToSize(ph.caption,CW):[];
+    const total=6+h+3+cap.length*4.8+5+6;need(Math.min(total,150));
+    doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(`Foto ${i+1} - ${ph.category||'Generale'}`,M,y+4);y+=6.5;
+    const x=M+(CW-w)/2;doc.addImage(ph.data,'JPEG',x,y,w,h);doc.setLineWidth(.25);doc.rect(x,y,w,h);y+=h+3.5;
+    if(cap.length){doc.setFont('helvetica','normal');doc.setFontSize(10);cap.forEach(l=>{doc.text(l,M,y+3.4);y+=4.8;});}
+    doc.setFont('helvetica','normal');doc.setFontSize(7.5);doc.text(`File: ${ph.name||'-'}  |  Scatto: ${tsStr(ph.ts)}`,M,y+3);y+=9;
+  });
+  // conclusioni
+  if(p.conclusions){need(24);y+=2;txt('Conclusioni e osservazioni finali',12,true);y+=1.5;txt(p.conclusions,10.5,false);y+=6;}
+  // firma
+  need(24);y+=6;doc.setFont('helvetica','normal');doc.setFontSize(10);doc.text(`${S.line1&&S.line1.split('(')[0].trim()?S.line1.split('(')[0].trim()+', ':''}${fmtDate(p.date)}`,M,y);y+=12;
+  doc.text('Il tecnico',W-M-50,y-6);doc.setFont('helvetica','bold');doc.text(p.operator||'',W-M-50,y);
+  // piè di pagina
+  const n=doc.getNumberOfPages();for(let i=1;i<=n;i++){doc.setPage(i);doc.setFont('helvetica','normal');doc.setFontSize(8);doc.setLineWidth(.2);doc.line(M,H-14,W-M,H-14);doc.text(S.studio||'',M,H-10);doc.text(`Pagina ${i} di ${n}`,W-M,H-10,{align:'right'});}
+  return doc.output('blob');
+}
+
+/* ---------- Generatore Word (solo nero, modificabile) ---------- */
+const b64=u=>{const s=atob(u.split(',')[1]);const a=new Uint8Array(s.length);for(let i=0;i<s.length;i++)a[i]=s.charCodeAt(i);return a;};
+async function buildDOCX(p,S){
+  const d=window.docx;const F='Arial';
+  const P_=(t,o={})=>new d.Paragraph({spacing:{after:o.after??80,before:o.before??0},alignment:o.align,keepNext:o.keepNext,border:o.border,children:[new d.TextRun({text:t||'',bold:!!o.bold,size:o.size||21,font:F,color:'000000'})]});
+  const none={style:d.BorderStyle.NONE,size:0,color:'FFFFFF'};
+  const bl={style:d.BorderStyle.SINGLE,size:4,color:'000000'};const borders={top:bl,bottom:bl,left:bl,right:bl};
+  const ch=[];
+  ch.push(P_(S.studio,{bold:true,size:30,after:20}));
+  [S.line1,S.line2].filter(Boolean).forEach(l=>ch.push(P_(l,{size:18,after:20})));
+  ch.push(new d.Paragraph({border:{bottom:{style:d.BorderStyle.SINGLE,size:12,color:'000000',space:4}},spacing:{after:200},children:[]}));
+  ch.push(P_('RELAZIONE FOTOGRAFICA',{bold:true,size:36,after:60}));
+  if(p.title)ch.push(P_(p.title,{bold:true,size:24,after:200}));
+  const rows=metaRows(p);
+  if(rows.length)ch.push(new d.Table({width:{size:9638,type:d.WidthType.DXA},columnWidths:[2300,7338],rows:rows.map(([k,v])=>new d.TableRow({cantSplit:true,children:[
+    new d.TableCell({borders,width:{size:2300,type:d.WidthType.DXA},margins:{top:60,bottom:60,left:100,right:100},children:[P_(k,{bold:true,size:20,after:0})]}),
+    new d.TableCell({borders,width:{size:7338,type:d.WidthType.DXA},margins:{top:60,bottom:60,left:100,right:100},children:[P_(v,{size:20,after:0})]})]}))}));
+  ch.push(P_('',{after:160}));
+  if(p.mapData){ch.push(P_('Localizzazione del sopralluogo',{bold:true,size:24,keepNext:true}));
+    ch.push(new d.Paragraph({keepNext:true,spacing:{after:40},children:[new d.ImageRun({data:b64(p.mapData),transformation:{width:560,height:350},type:'jpg'})]}));
+    ch.push(P_('Mappa: © OpenStreetMap contributors',{size:15,after:200}));}
+  if(p.premise){ch.push(P_('Premessa',{bold:true,size:24,keepNext:true}));p.premise.split(/\n+/).forEach(l=>ch.push(P_(l,{after:100})));ch.push(P_('',{after:100}));}
+  if(p.photos.length)ch.push(P_('Documentazione fotografica',{bold:true,size:24,keepNext:true,before:120,after:120}));
+  p.photos.forEach((ph,i)=>{
+    let w=580,h=w*ph.h/ph.w;const mh=380;if(h>mh){h=mh;w=h*ph.w/ph.h;}
+    ch.push(P_(`Foto ${i+1} - ${ph.category||'Generale'}`,{bold:true,size:21,keepNext:true,after:60}));
+    ch.push(new d.Paragraph({keepNext:true,alignment:d.AlignmentType.CENTER,spacing:{after:60},children:[new d.ImageRun({data:b64(ph.data),transformation:{width:Math.round(w),height:Math.round(h)},type:'jpg'})]}));
+    if(ph.caption)ch.push(P_(ph.caption,{size:20,keepNext:true,after:40}));
+    ch.push(P_(`File: ${ph.name||'-'}  |  Scatto: ${tsStr(ph.ts)}`,{size:15,after:240}));
+  });
+  if(p.conclusions){ch.push(P_('Conclusioni e osservazioni finali',{bold:true,size:24,keepNext:true,before:120}));p.conclusions.split(/\n+/).forEach(l=>ch.push(P_(l,{after:100})));}
+  const city=(S.line1||'').split('(')[0].trim();
+  ch.push(P_(`${city?city+', ':''}${fmtDate(p.date)}`,{before:300,after:200}));
+  ch.push(P_('Il tecnico',{align:d.AlignmentType.RIGHT,after:40}));ch.push(P_(p.operator||'',{bold:true,align:d.AlignmentType.RIGHT}));
+  const doc=new d.Document({creator:p.operator||S.studio,title:p.title||'Relazione fotografica',styles:{default:{document:{run:{font:F,size:21,color:'000000'}}}},
+    sections:[{properties:{page:{size:{width:11906,height:16838},margin:{top:1134,bottom:1134,left:1134,right:1134}}},
+      footers:{default:new d.Footer({children:[new d.Paragraph({alignment:d.AlignmentType.RIGHT,border:{top:{style:d.BorderStyle.SINGLE,size:4,color:'000000',space:4}},children:[new d.TextRun({text:(S.studio||'')+'   -   Pagina ',size:16,font:F,color:'000000'}),new d.TextRun({children:[d.PageNumber.CURRENT],size:16,font:F,color:'000000'}),new d.TextRun({text:' di ',size:16,font:F,color:'000000'}),new d.TextRun({children:[d.PageNumber.TOTAL_PAGES],size:16,font:F,color:'000000'})]})]})},
+      children:ch}]});
+  return d.Packer.toBlob(doc);
+}
+
+/* ---------- avvio ---------- */
+if('serviceWorker' in navigator&&location.protocol.startsWith('http'))navigator.serviceWorker.register('sw.js').catch(()=>{});
+if(navigator.storage&&navigator.storage.persist)navigator.storage.persist().catch(()=>{});
+home();
+</script>
+</body>
+</html>

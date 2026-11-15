@@ -247,17 +247,12 @@ function dictate(ta,btn){
   const SR=window.SpeechRecognition||window.webkitSpeechRecognition;
   if(rec){try{rec.stop();}catch(e){}return;}
   if(!SR){ta.focus();return toast('Dettatura integrata non disponibile: usa il microfono della tastiera iOS',4500);}
-  const r=new SR();rec=r;r.lang='it-IT';r.interimResults=true;r.continuous=true;
-  const base=ta.value.trim();let txt='',done=false,err=null;
-  const commit=()=>{if(done)return;done=true;const t=txt.trim();if(t){ta.value=(base?base+' ':'')+t.charAt(0).toUpperCase()+t.slice(1);ta.dispatchEvent(new Event('input'));}};
+  rec=new SR();rec.lang='it-IT';rec.interimResults=false;rec.continuous=false;
   btn.classList.add('rec');
-  r.onresult=ev=>{txt=[...ev.results].map(x=>x[0].transcript).join(' ');ta.value=(base?base+' ':'')+txt;};
-  r.onerror=ev=>{err=ev.error;};
-  r.onend=()=>{btn.classList.remove('rec');rec=null;commit();
-    if(err==='not-allowed'||err==='service-not-allowed')toast('Microfono/dettatura non consentiti: usa il microfono della tastiera iOS',4500);
-    else if(err==='no-speech'&&!txt)toast('Non ho sentito nulla, riprova',2500);
-    else if(err&&err!=='aborted'&&err!=='no-speech')toast('Dettatura interrotta ('+err+')',3500);};
-  try{r.start();toast('Parla, poi tocca di nuovo il microfono per fermare',3500);}catch(e){rec=null;btn.classList.remove('rec');ta.focus();}
+  rec.onresult=ev=>{const t=[...ev.results].map(r=>r[0].transcript).join(' ').trim();if(t){ta.value=(ta.value?ta.value.trim()+' ':'')+t.charAt(0).toUpperCase()+t.slice(1);ta.dispatchEvent(new Event('input'));}};
+  rec.onerror=ev=>{toast(ev.error==='not-allowed'||ev.error==='service-not-allowed'?'Microfono/dettatura non consentiti: usa il microfono della tastiera iOS':'Dettatura non riuscita ('+ev.error+')',4500);ta.focus();};
+  rec.onend=()=>{btn.classList.remove('rec');rec=null;};
+  try{rec.start();toast('Parla ora…',3000);}catch(e){rec=null;btn.classList.remove('rec');ta.focus();}
 }
 
 /* ---------- Report ---------- */

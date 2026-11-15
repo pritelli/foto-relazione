@@ -330,7 +330,7 @@ async function buildPDF(p,S){
   // foto
   if(p.photos.length){need(14);txt('Documentazione fotografica',12,true);y+=3;}
   p.photos.forEach((ph,i)=>{
-    const maxW=CW,maxH=100;let w=maxW,h=w*ph.h/ph.w;if(h>maxH){h=maxH;w=h*ph.w/ph.h;}
+    const maxW=CW,maxH=ph.h>ph.w?90:100;let w=maxW,h=w*ph.h/ph.w;if(h>maxH){h=maxH;w=h*ph.w/ph.h;}
     doc.setFontSize(10);const capW=Math.max(w,110);const cap=ph.caption?doc.splitTextToSize(ph.caption,capW):[];
     const total=6+h+3+cap.length*4.8+5+6;need(Math.min(total,150));
     doc.setFont('helvetica','bold');doc.setFontSize(10.5);doc.text(`Foto ${i+1} - ${ph.category||'Generale'}`,M,y+4);y+=6.5;
@@ -372,7 +372,7 @@ async function buildDOCX(p,S){
   if(p.premise){ch.push(P_('Premessa',{bold:true,size:24,keepNext:true}));p.premise.split(/\n+/).forEach(l=>ch.push(P_(l,{after:100})));ch.push(P_('',{after:100}));}
   if(p.photos.length)ch.push(P_('Documentazione fotografica',{bold:true,size:24,keepNext:true,before:120,after:120}));
   p.photos.forEach((ph,i)=>{
-    let w=580,h=w*ph.h/ph.w;const mh=380;if(h>mh){h=mh;w=h*ph.w/ph.h;}
+    let w=580,h=w*ph.h/ph.w;const mh=ph.h>ph.w?342:380;if(h>mh){h=mh;w=h*ph.w/ph.h;}
     ch.push(P_(`Foto ${i+1} - ${ph.category||'Generale'}`,{bold:true,size:21,keepNext:true,after:60}));
     ch.push(new d.Paragraph({keepNext:true,alignment:d.AlignmentType.CENTER,spacing:{after:60},children:[new d.ImageRun({data:b64(ph.data),transformation:{width:Math.round(w),height:Math.round(h)},type:'jpg'})]}));
     if(ph.caption)ch.push(P_(ph.caption,{size:20,keepNext:true,after:40,align:d.AlignmentType.CENTER}));

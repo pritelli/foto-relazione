@@ -29,7 +29,7 @@ input,select{font:inherit;width:100%;padding:11px 12px;border:1px solid #d4d4d4;
 .seg{display:flex;margin:0 12px 10px;background:rgba(0,0,0,.18);border-radius:12px;padding:3px}
 .seg button{flex:1;padding:8px 4px;border-radius:10px;font-weight:600;font-size:15px;color:#fff;opacity:.85}
 .seg button.on{background:#fff;color:var(--h);opacity:1}
-.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:14px}
+.main{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding-bottom:100px}
 .nav{flex:none;display:flex;background:#fff;border-top:1px solid #d9d9d9;padding-bottom:env(safe-area-inset-bottom)}
 .nav button{flex:1;padding:6px 0 5px;font-size:10px;color:#777;display:flex;flex-direction:column;align-items:center;gap:1px}
 .nav button.on{color:var(--h);font-weight:600}
@@ -253,7 +253,7 @@ function vAdd(){
   if(sel&&sel.subs.length){h+='<div class="chips" style="background:#fff;padding-top:0">'+sel.subs.map(s=>'<button class="chip'+(E.sub===s.id?' on':'')+'" data-a="ps" data-id="'+s.id+'">'+esc(s.name)+'</button>').join('')+'</div>'}
   const td=today();
   h+='<div class="chips"><button class="chip'+(E.date===td?' on':'')+'" data-a="dq" data-v="0">Oggi</button><button class="chip'+(E.date===addDays(td,-1)?' on':'')+'" data-a="dq" data-v="-1">Ieri</button><button class="chip date" data-a="cal">📅 '+esc(cap(dl(E.date)))+'</button></div>';
-  h+='<div class="chips" style="padding-top:2px"><button class="chip" data-a="pacc">'+(isCard(E.acc)?'💳':'🏦')+' '+esc(accName(E.acc))+'</button>';
+  h+='<div class="chips" style="padding-top:2px"><button class="chip" data-a="pacc">'+(isCard(E.acc)?'💳':'🏦')+' Pagamento in: '+esc(accName(E.acc))+'</button>';
   if(!E.editId)h+='<button class="chip'+(E.rec!=='0'?' on':'')+'" data-a="prec">🔁 '+(E.rec==='0'?'Fissa: no':'Fissa · '+FREQ[E.rec])+'</button>';
   h+='</div>';
   if(E.rec!=='0'&&!E.editId)h+='<div class="fixbar">Si ripete in automatico: '+esc(FREQ[E.rec].toLowerCase())+' a partire da '+esc(dl(E.date))+'. Non devi reinserirla; puoi correggere l\'importo di un singolo mese dai Movimenti.</div>';
@@ -500,7 +500,7 @@ A.dq=d=>{E.date=addDays(today(),+d.v);render()};
 A.cal=()=>pickDate(E.date,v=>{E.date=v;render()});
 A.cm=d=>{CAL.m+=+d.d;if(CAL.m<0){CAL.m=11;CAL.y--}if(CAL.m>11){CAL.m=0;CAL.y++}drawCal()};
 A.cd=d=>{const cb=CAL.cb;closeSheet();cb(d.v)};
-A.pacc=()=>{sheet('<div class="shh"><span>Conto / carta</span></div><div class="shb">'+accList().map(a=>'<button class="opt'+(E.acc===a.id?' on':'')+'" data-a="pacc2" data-id="'+a.id+'"><span>'+a.k+' '+esc(a.name)+'</span><span class="ck '+(a.bal<0?'neg':'pos')+'" style="font-weight:400;font-size:15px">'+eur(a.bal)+'</span></button>').join('')+'</div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
+A.pacc=()=>{sheet('<div class="shh"><span>Pagamento in</span></div><div class="shb">'+accList().map(a=>'<button class="opt'+(E.acc===a.id?' on':'')+'" data-a="pacc2" data-id="'+a.id+'"><span>'+a.k+' '+esc(a.name)+'</span><span class="ck '+(a.bal<0?'neg':'pos')+'" style="font-weight:400;font-size:15px">'+eur(a.bal)+'</span></button>').join('')+'</div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
 A.pacc2=d=>{E.acc=d.id;closeSheet();render()};
 A.prec=()=>{sheet('<div class="shh"><span>Spesa fissa</span></div><div class="shb">'+Object.keys(FREQ).map(k=>'<button class="opt'+(E.rec===k?' on':'')+'" data-a="prec2" data-v="'+k+'">'+(k==='0'?'🚫 ':'🔁 ')+FREQ[k]+(E.rec===k?'<span class="ck">✓</span>':'')+'</button>').join('')+'</div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
 A.prec2=d=>{E.rec=d.v;closeSheet();render()};

@@ -620,13 +620,19 @@ $('#file').addEventListener('change',async e=>{const f=e.target.files[0];e.targe
     save();E=newE();render();toast('Rimossi '+rm+' elementi'+(keep.length?' · NON rimossi perché usati: '+keep.join(', '):'')+' ✓');return}
   if(j.app==='fastbudget-setup'){let n=0;
     if(j.replace&&!S.tx.length&&!S.rec.length){S.accounts=[];S.cards=[];S.cats=[]}
+    let pr=0,keepN=[];
+    if(j.keepOnly){const L=a=>new Set((a||[]).map(x=>x.name.toLowerCase())),KA=L(j.accounts),KC=L(j.cards),KT=new Set((j.cats||[]).map(x=>x.type+'|'+x.name.toLowerCase()));
+      const before=S.rec.length;S.rec=S.rec.filter(r=>{const c=S.cats.find(x=>x.id===r.cat),a=S.accounts.find(x=>x.id===r.acc),d=S.cards.find(x=>x.id===r.acc);return c&&KT.has(c.type+'|'+c.name.toLowerCase())&&((a&&KA.has(a.name.toLowerCase()))||(d&&KC.has(d.name.toLowerCase())))});pr+=before-S.rec.length;
+      const used=id=>S.tx.some(t=>t.acc===id||t.to===id||t.cat===id)||S.rec.some(x=>x.acc===id||x.cat===id);
+      const f=(arr,ok,nm)=>arr.filter(x=>{if(ok(x))return true;if(used(x.id)){keepN.push(nm(x));return true}pr++;return false});
+      S.accounts=f(S.accounts,x=>KA.has(x.name.toLowerCase()),x=>x.name);S.cards=f(S.cards,x=>KC.has(x.name.toLowerCase()),x=>x.name);S.cats=f(S.cats,x=>KT.has(x.type+'|'+x.name.toLowerCase()),x=>x.name)}
     (j.accounts||[]).forEach(a=>{if(!S.accounts.some(x=>x.name.toLowerCase()===a.name.toLowerCase())){S.accounts.push({id:uid(),name:a.name,open:+a.open||0,arch:!!a.arch,hide:false});n++}});
     (j.cards||[]).forEach(c=>{if(!S.cards.some(x=>x.name.toLowerCase()===c.name.toLowerCase())){S.cards.push({id:uid(),name:c.name,limit:+c.limit||0,start:+c.start||1,hide:false});n++}});
     (j.cats||[]).forEach((c,i)=>{const ex=S.cats.find(x=>x.type===c.type&&x.name.toLowerCase()===c.name.toLowerCase());if(ex){(c.subs||[]).forEach(s=>{if(!ex.subs.some(y=>y.name===s))ex.subs.push({id:uid(),name:s})});if(c.fav)ex.fav=true}else{S.cats.push({id:uid(),name:c.name,icon:c.icon||'•',color:c.color||PAL[i%PAL.length],type:c.type,subs:(c.subs||[]).map(s=>({id:uid(),name:s})),fav:!!c.fav});n++}});
     let nr=0;(j.rec||[]).forEach(r=>{const ty=r.type||'exp';const c=S.cats.find(x=>x.type===ty&&x.name.toLowerCase()===String(r.cat||'').toLowerCase());const a=S.accounts.concat(S.cards).find(x=>x.name.toLowerCase()===String(r.acc||'').toLowerCase());if(!c||!a||!r.start)return;
       if(S.rec.some(x=>x.cat===c.id&&x.acc===a.id&&x.amt===+r.amt&&(x.note||'')===(r.note||'')))return;
       S.rec.push({id:uid(),type:ty,amt:+r.amt,cat:c.id,sub:null,acc:a.id,note:r.note||'',payee:'',freq:String(r.freq),start:r.start,day:+r.start.slice(8),end:null,after:today(),skip:[],paused:false});n++;nr++});
-    save();E=newE();render();toast('Importati '+n+' elementi, di cui '+nr+' spese fisse ✓');return}
+    save();E=newE();render();toast((pr?'Rimossi '+pr+' · ':'')+'Importati '+n+' elementi, di cui '+nr+' spese fisse'+(keepN.length?' · NON rimossi perché usati: '+keepN.join(', '):'')+' ✓');return}
   toast('Formato non riconosciuto')});
 
 /* ===== foto scontrini (IndexedDB) ===== */
@@ -643,7 +649,7 @@ A.phatt=()=>$('#pha').click();
 A.phdel=()=>{if(E.photo&&E.photo!==E.origPhoto)PDB.del(E.photo);E.photo=null;render()};
 A.phview=async()=>{if(!E.photo)return;const b=await PDB.get(E.photo);if(!b){toast('Foto non trovata');return}const u=URL.createObjectURL(b);sheet('<div class="shh"><span>Scontrino</span></div><div class="shb" style="background:#111"><img src="'+u+'" style="width:100%;display:block"></div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>','full')};
 
-const APP_V='7';
+const APP_V='8';
 A.upd=async()=>{try{const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();for(const k of await caches.keys())await caches.delete(k)}catch(e){}location.reload()};
 /* ===== avvio ===== */
 S=load()||seed();

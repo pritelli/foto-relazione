@@ -613,6 +613,11 @@ A.csv=()=>{const rows=[['Data','Giorno','Tipo','Importo','Categoria','Conto','A'
 A.imp=()=>$('#file').click();
 $('#file').addEventListener('change',async e=>{const f=e.target.files[0];e.target.value='';if(!f)return;let j;try{j=JSON.parse(await f.text())}catch(x){toast('File non valido');return}
   if(j.app==='fastbudget'&&j.data&&j.data.tx){if(!confirm('Sostituire TUTTI i dati attuali con il backup?'))return;S=j.data;save();materialize();E=newE();render();toast('Backup ripristinato ✓');return}
+  if(j.app==='fastbudget-setup'&&j.remove){const R=j.remove;let rm=0,keep=[];
+    (R.rec||[]).forEach(r=>{const c=S.cats.find(x=>x.type===(r.type||'inc')&&x.name.toLowerCase()===String(r.cat).toLowerCase());const a=S.accounts.concat(S.cards).find(x=>x.name.toLowerCase()===String(r.acc).toLowerCase());if(!c||!a)return;const i=S.rec.findIndex(x=>x.cat===c.id&&x.acc===a.id&&x.amt===+r.amt);if(i>=0){S.rec.splice(i,1);rm++}});
+    (R.accounts||[]).forEach(nm=>{const a=S.accounts.find(x=>x.name.toLowerCase()===nm.toLowerCase());if(!a)return;if(S.tx.some(t=>t.acc===a.id||t.to===a.id)||S.rec.some(x=>x.acc===a.id)){keep.push(a.name);return}S.accounts=S.accounts.filter(x=>x!==a);rm++});
+    (R.cats||[]).forEach(c0=>{const c=S.cats.find(x=>x.type===c0.type&&x.name.toLowerCase()===c0.name.toLowerCase());if(!c)return;if(S.tx.some(t=>t.cat===c.id)||S.rec.some(x=>x.cat===c.id)){keep.push(c.name);return}S.cats=S.cats.filter(x=>x!==c);rm++});
+    save();E=newE();render();toast('Rimossi '+rm+' elementi'+(keep.length?' · NON rimossi perché usati: '+keep.join(', '):'')+' ✓');return}
   if(j.app==='fastbudget-setup'){let n=0;
     if(j.replace&&!S.tx.length&&!S.rec.length){S.accounts=[];S.cards=[];S.cats=[]}
     (j.accounts||[]).forEach(a=>{if(!S.accounts.some(x=>x.name.toLowerCase()===a.name.toLowerCase())){S.accounts.push({id:uid(),name:a.name,open:+a.open||0,arch:!!a.arch,hide:false});n++}});
@@ -638,7 +643,7 @@ A.phatt=()=>$('#pha').click();
 A.phdel=()=>{if(E.photo&&E.photo!==E.origPhoto)PDB.del(E.photo);E.photo=null;render()};
 A.phview=async()=>{if(!E.photo)return;const b=await PDB.get(E.photo);if(!b){toast('Foto non trovata');return}const u=URL.createObjectURL(b);sheet('<div class="shh"><span>Scontrino</span></div><div class="shb" style="background:#111"><img src="'+u+'" style="width:100%;display:block"></div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>','full')};
 
-const APP_V='6';
+const APP_V='7';
 A.upd=async()=>{try{const rs=await navigator.serviceWorker.getRegistrations();for(const r of rs)await r.unregister();for(const k of await caches.keys())await caches.delete(k)}catch(e){}location.reload()};
 /* ===== avvio ===== */
 S=load()||seed();

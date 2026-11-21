@@ -500,7 +500,7 @@ A.dq=d=>{E.date=addDays(today(),+d.v);render()};
 A.cal=()=>pickDate(E.date,v=>{E.date=v;render()});
 A.cm=d=>{CAL.m+=+d.d;if(CAL.m<0){CAL.m=11;CAL.y--}if(CAL.m>11){CAL.m=0;CAL.y++}drawCal()};
 A.cd=d=>{const cb=CAL.cb;closeSheet();cb(d.v)};
-A.pacc=()=>{sheet('<div class="shh"><span>Pagamento in</span></div><div class="shb">'+accList().map(a=>'<button class="opt'+(E.acc===a.id?' on':'')+'" data-a="pacc2" data-id="'+a.id+'"><span>'+a.k+' '+esc(a.name)+'</span><span class="ck '+(a.bal<0?'neg':'pos')+'" style="font-weight:400;font-size:15px">'+eur(a.bal)+'</span></button>').join('')+'</div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
+A.pacc=()=>{sheet('<div class="shh"><span>Pagamento in</span></div><div class="shb">'+accList().map(a=>'<button class="opt'+(E.acc===a.id?' on':'')+'" data-a="pacc2" data-id="'+a.id+'"><span>'+a.k+' '+esc(a.name)+'</span><span class="ck '+(a.bal<0?'neg':'pos')+'" style="font-weight:400;font-size:15px">'+eur(a.bal)+'</span></button>').join('')+'<button class="opt" data-a="newacc" style="color:var(--h)">＋ Nuovo conto</button><button class="opt" data-a="newcard" style="color:var(--h)">＋ Nuova carta di credito</button></div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
 A.pacc2=d=>{E.acc=d.id;closeSheet();render()};
 A.prec=()=>{sheet('<div class="shh"><span>Spesa fissa</span></div><div class="shb">'+Object.keys(FREQ).map(k=>'<button class="opt'+(E.rec===k?' on':'')+'" data-a="prec2" data-v="'+k+'">'+(k==='0'?'🚫 ':'🔁 ')+FREQ[k]+(E.rec===k?'<span class="ck">✓</span>':'')+'</button>').join('')+'</div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
 A.prec2=d=>{E.rec=d.v;closeSheet();render()};
@@ -564,9 +564,10 @@ A.newcard=()=>{AE={id:null,name:'',limit:'',start:'1'};drawAE(true)};
 function drawAE(card){
   sheet('<div class="shh"><span>'+(AE.id?'Modifica':'Nuov'+(card?'a carta':'o conto'))+'</span></div><div class="shb"><div class="fld"><label>Nome</label><input data-in="ae.name" value="'+esc(AE.name)+'" placeholder="'+(card?'Es. Visa':'Es. Conto corrente')+'"></div>'+(card?'<div class="fld"><label>Limite (€)</label><input data-in="ae.limit" inputmode="decimal" value="'+esc(AE.limit)+'"></div><div class="fld"><label>Il ciclo inizia il giorno (1-31)</label><input data-in="ae.start" inputmode="numeric" value="'+esc(AE.start)+'"></div>':'<div class="fld"><label>Saldo iniziale (€)</label><input data-in="ae.open" inputmode="decimal" value="'+esc(AE.open)+'"></div>')+'</div><div class="shf"><button class="btn sec" data-a="x">Annulla</button><button class="btn" data-a="aesave" data-card="'+(card?1:0)+'">Salva</button></div>');
 }
-A.aesave=d=>{if(!AE.name.trim()){toast('Inserisci un nome');return}
-  if(d.card==='1'){const o={name:AE.name.trim(),limit:parseAmt(AE.limit),start:Math.min(31,Math.max(1,parseInt(AE.start)||1))};if(AE.id)Object.assign(S.cards.find(c=>c.id===AE.id),o);else S.cards.push({id:uid(),hide:false,...o})}
-  else{const o={name:AE.name.trim(),open:parseAmt(AE.open)};if(AE.id)Object.assign(S.accounts.find(c=>c.id===AE.id),o);else S.accounts.push({id:uid(),arch:false,hide:false,...o})}
+A.aesave=d=>{if(!AE.name.trim()){toast('Inserisci un nome');return}let nid=null;
+  if(d.card==='1'){const o={name:AE.name.trim(),limit:parseAmt(AE.limit),start:Math.min(31,Math.max(1,parseInt(AE.start)||1))};if(AE.id)Object.assign(S.cards.find(c=>c.id===AE.id),o);else S.cards.push({id:(nid=uid()),hide:false,...o})}
+  else{const o={name:AE.name.trim(),open:parseAmt(AE.open)};if(AE.id)Object.assign(S.accounts.find(c=>c.id===AE.id),o);else S.accounts.push({id:(nid=uid()),arch:false,hide:false,...o})}
+  if(nid&&tab==='add'&&!sub)E.acc=nid;
   save();closeSheet();render()};
 A.am=d=>{const a=acc(d.id);sheet('<div class="shh"><span>'+esc(a.name)+'</span></div><div class="shb"><button class="opt" data-a="aedit" data-id="'+a.id+'">✏️ Modifica nome / saldo iniziale</button><button class="opt" data-a="aarch" data-id="'+a.id+'">'+(a.arch?'📤 Ripristina':'📦 Archivia')+'</button><button class="opt" data-a="adel" data-id="'+a.id+'" style="color:#c62828">🗑 Elimina</button></div><div class="shf"><button class="btn sec" data-a="x">Chiudi</button></div>')};
 A.aedit=d=>{const a=acc(d.id);AE={id:a.id,name:a.name,open:numStr(a.open||0)};drawAE(false)};
@@ -617,6 +618,9 @@ $('#file').addEventListener('change',async e=>{const f=e.target.files[0];e.targe
     (j.accounts||[]).forEach(a=>{if(!S.accounts.some(x=>x.name.toLowerCase()===a.name.toLowerCase())){S.accounts.push({id:uid(),name:a.name,open:+a.open||0,arch:!!a.arch,hide:false});n++}});
     (j.cards||[]).forEach(c=>{if(!S.cards.some(x=>x.name.toLowerCase()===c.name.toLowerCase())){S.cards.push({id:uid(),name:c.name,limit:+c.limit||0,start:+c.start||1,hide:false});n++}});
     (j.cats||[]).forEach((c,i)=>{const ex=S.cats.find(x=>x.type===c.type&&x.name.toLowerCase()===c.name.toLowerCase());if(ex){(c.subs||[]).forEach(s=>{if(!ex.subs.some(y=>y.name===s))ex.subs.push({id:uid(),name:s})});if(c.fav)ex.fav=true}else{S.cats.push({id:uid(),name:c.name,icon:c.icon||'•',color:c.color||PAL[i%PAL.length],type:c.type,subs:(c.subs||[]).map(s=>({id:uid(),name:s})),fav:!!c.fav});n++}});
+    (j.rec||[]).forEach(r=>{const ty=r.type||'exp';const c=S.cats.find(x=>x.type===ty&&x.name.toLowerCase()===String(r.cat||'').toLowerCase());const a=S.accounts.concat(S.cards).find(x=>x.name.toLowerCase()===String(r.acc||'').toLowerCase());if(!c||!a||!r.start)return;
+      if(S.rec.some(x=>x.cat===c.id&&x.acc===a.id&&x.amt===+r.amt&&(x.note||'')===(r.note||'')))return;
+      S.rec.push({id:uid(),type:ty,amt:+r.amt,cat:c.id,sub:null,acc:a.id,note:r.note||'',payee:'',freq:String(r.freq),start:r.start,day:+r.start.slice(8),end:null,after:today(),skip:[],paused:false});n++});
     save();E=newE();render();toast('Importati '+n+' elementi ✓');return}
   toast('Formato non riconosciuto')});
 
